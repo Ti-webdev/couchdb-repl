@@ -14,20 +14,55 @@ var sourceUrl = String(argv._[2]).replace(/\/+$/, '');
 // console.log(argv);
 // return console.log(sourceUrl, targetUrl);
 
-var soruceDb = PouchDB(sourceUrl + '/_all_dbs', {
+PouchDB(sourceUrl + '/_all_dbs', {
     skipSetup: true
-  });
-
-soruceDb.request({
-    url: ''
+  })
+  .request({
+      url: ''
+    })
+  .then(function(dbs) {
+    if (argv.dbs) {
+      var filterDbs = argv.dbs.split(/\s*,\s*/);
+      return dbs.filter(function(db) {
+        return -1 !== filterDbs.indexOf(db);
+      });
+    }
+    else {
+      return dbs.filter(function (db) {
+        return !/^_/.test(db);
+      });
+    }
+  })
+  .then(function (dbs) {
+    if (argv.create) {
+      var queue = Promise.resolve();
+      dbs.forEach(function(db) {
+        queue = queue.then(function () {
+          return PouchDB(targetUrl + '/' + db, { skipSetup: true})
+            .request({
+              url: '',
+              method: 'PUT'
+            })
+            .then(function () {
+              if (argv.verbose) console.log('db created:\t' + db);
+            },function(err) {
+              if ('file_exists' !== err.name) throw err;
+              if (argv.verbose) console.log('db exists:\t' + db);
+            });
+        });
+      });
+      return queue.then(function () {
+        return dbs;
+      });
+    }
+    else {
+      return dbs;
+    }
   })
   .then(function(dbs) {
-    return dbs.filter(function (db) {
-      return !/^_/.test(db);
-    });
-  })
-  .then(function(dbs) {
-    return PouchDB(targetUrl + '/_session')
+    return PouchDB(targetUrl + '/_session', {
+      skipSetup: true
+    })
       .request({
         url: ''
       })
@@ -44,13 +79,18 @@ soruceDb.request({
       });
   })
   .then(function (docs) {
-    return PouchDB(targetUrl + '/_replicator')
+    return PouchDB(targetUrl + '/_replicator', {
+      skipSetup: true
+    })
       .bulkDocs(docs);
   })
-  // .then(function (result) {
-  //   console.log(result);
-  // })
+  .then(function (result) {
+    if (argv.verbose) {
+      console.log(result);
+    }
+  })
   .catch(function (err) {
     console.error(err);
+    console.error(err.stack);
     process.exit(-1);
   });
