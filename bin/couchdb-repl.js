@@ -4,15 +4,8 @@ var PouchDB = require('pouchdb');
 var assert = require('assert');
 var argv = require('minimist')(process.argv.slice(2));
 
-assert.equal('rep', argv._[0]);
-assert.equal('host', argv._[1]);
-assert(argv.host);
-
-var targetUrl = String(argv.host).replace(/\/+$/, '');
-var sourceUrl = String(argv._[2]).replace(/\/+$/, '');
-//
-// console.log(argv);
-// return console.log(sourceUrl, targetUrl);
+var sourceUrl = String(argv._[0]).replace(/\/+$/, '');
+var targetUrl = String(argv._[1]).replace(/\/+$/, '');
 
 PouchDB(sourceUrl + '/_all_dbs', {
     skipSetup: true
@@ -20,6 +13,7 @@ PouchDB(sourceUrl + '/_all_dbs', {
   .request({
       url: ''
     })
+  // --dbs
   .then(function(dbs) {
     if (argv.dbs) {
       var filterDbs = argv.dbs.split(/\s*,\s*/);
@@ -33,6 +27,7 @@ PouchDB(sourceUrl + '/_all_dbs', {
       });
     }
   })
+  // --create
   .then(function (dbs) {
     if (argv.create) {
       var queue = Promise.resolve();
@@ -59,6 +54,38 @@ PouchDB(sourceUrl + '/_all_dbs', {
       return dbs;
     }
   })
+  // security
+  .then(function (dbs) {
+    if (argv.security) {
+      var queue = Promise.resolve();
+      dbs.forEach(function(db) {
+        queue = queue.then(function () {
+          return PouchDB(sourceUrl + '/' + db, { skipSetup: true})
+            .request({
+              url: '_security'
+            })
+            .then(function (security) {
+              if (argv.verbose) {
+                console.log(db + '/_security:\t', security);
+              }
+              return PouchDB(targetUrl + '/' + db, { skipSetup: true})
+                .request({
+                  url: '_security',
+                  method: 'PUT',
+                  body: security
+                });
+            });
+        });
+      });
+      return queue.then(function () {
+        return dbs;
+      });
+    }
+    else {
+      return dbs;
+    }
+  })
+  // repl docs
   .then(function(dbs) {
     return PouchDB(targetUrl + '/_session', {
       skipSetup: true
@@ -78,6 +105,7 @@ PouchDB(sourceUrl + '/_all_dbs', {
         });
       });
   })
+  // put
   .then(function (docs) {
     return PouchDB(targetUrl + '/_replicator', {
       skipSetup: true

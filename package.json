@@ -1,24 +1,24 @@
 {
-  "name": "couchdb-utils",
+  "name": "couchdb-repl",
   "version": "1.0.0",
-  "description": "Node version couchdb-utils",
+  "description": "Node version couchdb-repl",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "couchdb-utils": "./bin/couchdb-utils.js"
+    "couchdb-repl": "./bin/couchdb-repl.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ti-webdev/couchdb-utils.git"
+    "url": "git+https://github.com/Ti-webdev/couchdb-repl.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Ti-webdev/couchdb-utils/issues"
+    "url": "https://github.com/Ti-webdev/couchdb-repl/issues"
   },
-  "homepage": "https://github.com/Ti-webdev/couchdb-utils#readme",
+  "homepage": "https://github.com/Ti-webdev/couchdb-repl#readme",
   "dependencies": {
     "minimist": "^1.2.0",
     "pouchdb": "^4.0.2"
