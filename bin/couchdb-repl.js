@@ -7,6 +7,8 @@ var argv = require('minimist')(process.argv.slice(2));
 var sourceUrl = String(argv._[0]).replace(/\/+$/, '');
 var targetUrl = String(argv._[1]).replace(/\/+$/, '');
 
+assert(argv._[0] && argv._[1], 'source and target is required')
+
 PouchDB(sourceUrl + '/_all_dbs', {
     skipSetup: true
   })

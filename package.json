@@ -1,6 +1,6 @@
 {
   "name": "couchdb-repl",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node version couchdb-repl",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,6 @@
   "homepage": "https://github.com/Ti-webdev/couchdb-repl#readme",
   "dependencies": {
     "minimist": "^1.2.0",
-    "pouchdb": "^4.0.2"
+    "pouchdb": "^5.1.0"
   }
 }
