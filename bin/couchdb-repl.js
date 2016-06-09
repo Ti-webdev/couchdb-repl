@@ -1,90 +1,165 @@
 #!/usr/bin/env node
 
-var PouchDB = require('pouchdb');
-var assert = require('assert');
-var argv = require('minimist')(process.argv.slice(2));
+var PouchDB = require('pouchdb-core')
+  .plugin(require('pouchdb-adapter-http'))
+  .plugin(require('pouchdb-replication'))
 
-var sourceUrl = String(argv._[0]).replace(/\/+$/, '');
-var targetUrl = String(argv._[1]).replace(/\/+$/, '');
+var argv = require('yargs')
+    .usage('Usage: $0 <source> <target> [options]')
+    .demand(2, 2, '<source> <target> is required')
+    .boolean(['create', 'continuous', 'security', 'verbose', 'system'])
 
-assert(argv._[0] && argv._[1], 'source and target is required')
+    .describe('dbs', 'databases to replicate, separated by a comma')
+    .describe('exclude', 'list of exclude databases')
+    .describe('system', 'do not skip system databases like _users, _replicator')
+    .describe('create', 'create databases before replicate')
+    .describe('continuous', 'use continuous replication')
+    .describe('security', 'copy databases security')
+    .describe('filter', 'replication filter')
+    .describe('query', 'JSON Object containing properties that are passed to the filter function')
+    .describe('directly', 'replicate immediately')
+    .describe('verbose', 'explain what is being done')
+    .describe('tpl-doc-id', 'template for replicator document ids e.g. source→target:%DB%')
 
-PouchDB(sourceUrl + '/_all_dbs', {
-    skipSetup: true
-  })
+    .alias('v', 'verbose')
+
+    .env('REPL')
+
+    .argv
+
+console.log(argv);
+process.exit(-1);
+
+var sourceUrl = String(argv._[0]).replace(/\/+$/, '')
+var targetUrl = String(argv._[1]).replace(/\/+$/, '')
+
+// --filter
+// --query
+var addReplicationOptions = function (options) {
+  if (argv.filter) {
+    options.filter = argv.filter
+  }
+  if (argv.query) {
+    options.query_params = JSON.parse(argv.query)
+  }
+  return options
+}
+
+PouchDB(sourceUrl + '/_all_dbs', {skipSetup: true})
   .request({
       url: ''
     })
-  // --dbs
+  // --dbs=db1,db2,db3
   .then(function(dbs) {
     if (argv.dbs) {
-      var filterDbs = argv.dbs.split(/\s*,\s*/);
+      var filterDbs = argv.dbs.split(/\s*,\s*/)
       return dbs.filter(function(db) {
-        return -1 !== filterDbs.indexOf(db);
-      });
+        return -1 !== filterDbs.indexOf(db)
+      })
+    }
+    else {
+      return dbs
+    }
+  })
+  // --dbs=db1,db2,db3
+  .then(function(dbs) {
+    if (argv.exclude) {
+      var filterDbs = argv.exclude.split(/\s*,\s*/)
+      return dbs.filter(function(db) {
+        return -1 === filterDbs.indexOf(db)
+      })
+    }
+    else {
+      return dbs
+    }
+  })
+  // --system
+  .then(function(dbs) {
+    if (argv.system) {
+      return dbs
     }
     else {
       return dbs.filter(function (db) {
-        return !/^_/.test(db);
-      });
+        return !/^_/.test(db)
+      })
     }
   })
   // --create
   .then(function (dbs) {
     if (argv.create) {
-      var queue = Promise.resolve();
+      var queue = Promise.resolve()
       dbs.forEach(function(db) {
         queue = queue.then(function () {
-          return PouchDB(targetUrl + '/' + db, { skipSetup: true})
+          return PouchDB(targetUrl + '/' + db, {skipSetup: true})
             .request({
               url: '',
               method: 'PUT'
             })
             .then(function () {
-              if (argv.verbose) console.log('db created:\t' + db);
+              if (argv.verbose) console.log('db created:\t' + db)
             },function(err) {
-              if ('file_exists' !== err.name) throw err;
-              if (argv.verbose) console.log('db exists:\t' + db);
-            });
-        });
-      });
+              if ('file_exists' !== err.name) throw err
+              if (argv.verbose) console.log('db exists:\t' + db)
+            })
+        })
+      })
       return queue.then(function () {
-        return dbs;
-      });
+        return dbs
+      })
     }
     else {
-      return dbs;
+      return dbs
     }
   })
   // security
   .then(function (dbs) {
     if (argv.security) {
-      var queue = Promise.resolve();
-      dbs.forEach(function(db) {
-        queue = queue.then(function () {
+      return dbs.reduce(function(queue, db) {
+        return queue.then(function () {
           return PouchDB(sourceUrl + '/' + db, { skipSetup: true})
             .request({
               url: '_security'
             })
             .then(function (security) {
               if (argv.verbose) {
-                console.log(db + '/_security:\t', security);
+                console.log(db + '/_security:\t', security)
               }
               return PouchDB(targetUrl + '/' + db, { skipSetup: true})
                 .request({
                   url: '_security',
                   method: 'PUT',
                   body: security
-                });
-            });
-        });
-      });
-      return queue.then(function () {
-        return dbs;
-      });
+                })
+            })
+        })
+      }, Promise.resolve())
+      .then(function () {
+        return dbs
+      })
     }
     else {
-      return dbs;
+      return dbs
+    }
+  })
+  // --directly
+  .then(function (dbs) {
+    if (argv.directly) {
+      return dbs.reduce(function(queue, db) {
+        return queue.then(function () {
+          return PouchDB.replicate(sourceUrl + '/' + db, targetUrl + '/' + db, addReplicationOptions({}))
+            .then(function () {
+              if (argv.verbose) {
+                console.log(db + ' replicated')
+              }
+            })
+        })
+      }, Promise.resolve())
+      .then(function () {
+        return dbs
+      })
+    }
+    else {
+      return dbs
     }
   })
   // repl docs
@@ -102,25 +177,38 @@ PouchDB(sourceUrl + '/_all_dbs', {
             target: db,
             create: Boolean(argv.create),
             continuous: Boolean(argv.continuous),
-            user_ctx: session.userCtx
+            user_ctx: session.userCtx || {roles: ['_admin']}
           }
-        });
-      });
+        })
+      })
   })
+  // --tpl-doc-id
+  // --filter
+  // --query
+  .then(function (docs) {
+      docs.forEach(function (doc) {
+        if (argv.tplDocId) {
+          doc._id = argv.tplDocId.replace(/%DB%/gi, doc.target)
+        }
+        addReplicationOptions(doc)
+      })
+    return docs
+  })
+
   // put
   .then(function (docs) {
     return PouchDB(targetUrl + '/_replicator', {
       skipSetup: true
     })
-      .bulkDocs(docs);
+      .bulkDocs(docs)
   })
   .then(function (result) {
     if (argv.verbose) {
-      console.log(result);
+      console.log(result)
     }
   })
   .catch(function (err) {
-    console.error(err);
-    console.error(err.stack);
-    process.exit(-1);
-  });
+    console.error(err)
+    console.error(err.stack)
+    process.exit(-1)
+  })
