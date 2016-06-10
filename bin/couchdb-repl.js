@@ -1,13 +1,22 @@
 #!/usr/bin/env node
 
+var yargs = require('yargs')
+
 var PouchDB = require('pouchdb-core')
   .plugin(require('pouchdb-adapter-http'))
   .plugin(require('pouchdb-replication'))
 
+if (yargs.boolean('version').argv.version) {
+  console.log(require('../package.json').version);
+  process.exit(0);
+}
+
 var argv = require('yargs')
+
+var argv = yargs
     .usage('Usage: $0 <source> <target> [options]')
     .demand(2, 2, '<source> <target> is required')
-    .boolean(['create', 'continuous', 'security', 'verbose', 'system'])
+    .boolean(['create', 'continuous', 'security', 'verbose', 'version', 'system'])
 
     .describe('dbs', 'databases to replicate, separated by a comma')
     .describe('exclude', 'list of exclude databases')
@@ -19,6 +28,7 @@ var argv = require('yargs')
     .describe('query', 'JSON Object containing properties that are passed to the filter function')
     .describe('directly', 'replicate immediately')
     .describe('verbose', 'explain what is being done')
+    .describe('version', 'show current version and exit')
     .describe('tpl-doc-id', 'template for replicator document ids e.g. source→target:%DB%')
 
     .alias('v', 'verbose')
@@ -27,8 +37,6 @@ var argv = require('yargs')
 
     .argv
 
-console.log(argv);
-process.exit(-1);
 
 var sourceUrl = String(argv._[0]).replace(/\/+$/, '')
 var targetUrl = String(argv._[1]).replace(/\/+$/, '')
