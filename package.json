@@ -1,6 +1,6 @@
 {
   "name": "couchdb-repl",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Node version couchdb-repl",
   "main": "index.js",
   "scripts": {
@@ -20,9 +20,9 @@
   },
   "homepage": "https://github.com/Ti-webdev/couchdb-repl#readme",
   "dependencies": {
-    "pouchdb-adapter-http": "^5.4.1",
-    "pouchdb-core": "^5.4.1",
-    "pouchdb-replication": "^5.4.1",
-    "yargs": "^4.7.1"
+    "pouchdb-adapter-http": "^6.1.0",
+    "pouchdb-core": "^6.1.0",
+    "pouchdb-replication": "^6.1.0",
+    "yargs": "^6.5.0"
   }
 }

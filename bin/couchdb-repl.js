@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-var yargs = require('yargs')
+const yargs = require('yargs')
 
-var PouchDB = require('pouchdb-core')
+const PouchDB = require('pouchdb-core')
   .plugin(require('pouchdb-adapter-http'))
   .plugin(require('pouchdb-replication'))
 
@@ -11,9 +11,9 @@ if (yargs.boolean('version').argv.version) {
   process.exit(0);
 }
 
-var argv = require('yargs')
+const argv = require('yargs')
 
-var argv = yargs
+const argv = yargs
     .usage('Usage: $0 <source> <target> [options]')
     .demand(2, 2, '<source> <target> is required')
     .boolean(['create', 'continuous', 'security', 'verbose', 'version', 'system'])
@@ -38,12 +38,12 @@ var argv = yargs
     .argv
 
 
-var sourceUrl = String(argv._[0]).replace(/\/+$/, '')
-var targetUrl = String(argv._[1]).replace(/\/+$/, '')
+const sourceUrl = String(argv._[0]).replace(/\/+$/, '')
+const targetUrl = String(argv._[1]).replace(/\/+$/, '')
 
 // --filter
 // --query
-var addReplicationOptions = function (options) {
+const addReplicationOptions = function (options) {
   if (argv.filter) {
     options.filter = argv.filter
   }
@@ -53,26 +53,22 @@ var addReplicationOptions = function (options) {
   return options
 }
 
-PouchDB(sourceUrl + '/_all_dbs', {skipSetup: true})
-  .request({
-      url: ''
-    })
-  // --dbs=db1,db2,db3
-  .then(function(dbs) {
+let db = PouchDB(sourceUrl + '/_all_dbs', {skipSetup: true, ajax: {timeout: 120000}})
+Promise.resolve()
+  .then(function () {
+    // --dbs=db1,db2,db3
     if (argv.dbs) {
-      var filterDbs = argv.dbs.split(/\s*,\s*/)
-      return dbs.filter(function(db) {
-        return -1 !== filterDbs.indexOf(db)
-      })
+      return argv.dbs
     }
-    else {
-      return dbs
-    }
+    return db
+      .request({
+          url: ''
+        })
   })
-  // --dbs=db1,db2,db3
+  // --exclude=db1,db2,db3
   .then(function(dbs) {
     if (argv.exclude) {
-      var filterDbs = argv.exclude.split(/\s*,\s*/)
+      const filterDbs = argv.exclude.split(/\s*,\s*/)
       return dbs.filter(function(db) {
         return -1 === filterDbs.indexOf(db)
       })
@@ -95,9 +91,8 @@ PouchDB(sourceUrl + '/_all_dbs', {skipSetup: true})
   // --create
   .then(function (dbs) {
     if (argv.create) {
-      var queue = Promise.resolve()
-      dbs.forEach(function(db) {
-        queue = queue.then(function () {
+      return dbs.recuce(function (queue, db) {
+        return queue.then(function () {
           return PouchDB(targetUrl + '/' + db, {skipSetup: true})
             .request({
               url: '',
@@ -110,10 +105,10 @@ PouchDB(sourceUrl + '/_all_dbs', {skipSetup: true})
               if (argv.verbose) console.log('db exists:\t' + db)
             })
         })
-      })
-      return queue.then(function () {
-        return dbs
-      })
+      }, Promise.resolve())
+        .then(function () {
+          return dbs
+        })
     }
     else {
       return dbs
