@@ -11,8 +11,6 @@ if (yargs.boolean('version').argv.version) {
   process.exit(0);
 }
 
-const argv = require('yargs')
-
 const argv = yargs
     .usage('Usage: $0 <source> <target> [options]')
     .demand(2, 2, '<source> <target> is required')
