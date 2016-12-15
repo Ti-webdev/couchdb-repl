@@ -56,7 +56,7 @@ Promise.resolve()
   .then(function () {
     // --dbs=db1,db2,db3
     if (argv.dbs) {
-      return argv.dbs
+      return argv.dbs.split(/\s*,\s*/)
     }
     return db
       .request({
