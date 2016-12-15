@@ -89,7 +89,7 @@ Promise.resolve()
   // --create
   .then(function (dbs) {
     if (argv.create) {
-      return dbs.recuce(function (queue, db) {
+      return dbs.reduce(function (queue, db) {
         return queue.then(function () {
           return PouchDB(targetUrl + '/' + db, {skipSetup: true})
             .request({
