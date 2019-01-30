@@ -13,7 +13,7 @@
     "type": "git",
     "url": "git+https://github.com/Ti-webdev/couchdb-repl.git"
   },
-  "author": "",
+  "author": "Vasily Mikhaylovsky",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/Ti-webdev/couchdb-repl/issues"
@@ -24,5 +24,10 @@
     "pouchdb-core": "6.4.3",
     "pouchdb-replication": "6.4.3",
     "yargs": "^12.0.5"
-  }
+  },
+  "keywords": [
+    "replication",
+    "couchdb",
+    "pouchdb"
+  ]
 }
