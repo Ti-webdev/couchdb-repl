@@ -107,8 +107,10 @@ async function main () {
       if (argv.verbose) {
         console.log(db + ' replicated')
       }
-      continue
     }
+  }
+  if (argv.directly) {
+    return
   }
   // repl docs
   const sessionDB = new PouchDB(targetURL + '/_session', { skipSetup: true })
