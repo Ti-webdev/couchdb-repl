@@ -107,7 +107,7 @@ async function main () {
       if (argv.verbose) {
         console.log(db + ' replicated')
       }
-      return
+      continue
     }
   }
   // repl docs
