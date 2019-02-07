@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const yargs = require('yargs')
+const axios = require('axios')
 
 if (yargs.boolean('version').argv.version) {
   console.log(require('../package.json').version);
@@ -25,6 +26,7 @@ const argv = yargs
     .describe('directly', 'replicate immediately')
     .describe('verbose', 'explain what is being done')
     .describe('version', 'show current version and exit')
+    .describe('tpl-target', 'template for replicator target e.g. copy_%DB%')
     .describe('tpl-doc-id', 'template for replicator document ids e.g. source→target:%DB%')
 
     .alias('v', 'verbose')
@@ -56,7 +58,19 @@ async function main () {
     return options
   }
 
-  const db = new PouchDB(sourceURL + '/_all_dbs', {skipSetup: true, ajax: {timeout: 120000}})
+  const getTargetDb = function (db) {
+    if (argv.tplTarget) {
+      const target = argv.tplTarget.replace(/%DB%/gi, db)
+      try {
+        return new URL(target)
+      } catch {
+        return new URL(`${targetURL}/${target}`)
+      }
+    } else {
+      return new URL(`${targetURL}/${db}`)
+    }
+  }
+
   let dbs
 
   // --dbs=db1,db2,db3
@@ -65,8 +79,10 @@ async function main () {
   } else if (argv.db) {
     dbs = Array.isArray(argv.db) ? argv.db : [argv.db]
   } else {
-    dbs = await db.request({ url: '' })
+    const { data } = await axios(`${sourceURL}/_all_dbs`)
+    dbs = data
   }
+  console.log(dbs)
 
   // --exclude=db1,db2,db3
   if (argv.exclude) {
@@ -78,32 +94,32 @@ async function main () {
     dbs = dbs.filter(db => !/^_/.test(db))
   }
 
+
   for (let db of dbs) {
-    const sourceDB = new PouchDB(`${sourceURL}/${db}`, { skipSetup: true })
-    const targetDB = new PouchDB(`${targetURL}/${db}`, { skipSetup: true })
+    const targetDBURL = `${targetURL}${getTargetDb(db).pathname}`
     // --create
     if (argv.create) {
       try {
-        await targetDB.request({ url: '', method: 'PUT' })
+        await axios.put(targetDBURL)
         if (argv.verbose) console.log('db created:\t' + db)
       } catch (e) {
-        if ('file_exists' !== e.name) throw err
-        if (argv.verbose) console.log('db exists:\t' + db)
+        if (e.response.data && 'file_exists' === e.response.data.error) {
+          if (argv.verbose) console.log('db exists:\t' + db)
+        } else {
+          throw e
+        }
       }
     }
     // --security
     if (argv.security) {
-      const security = await sourceDB.request({ url: '_security' })
+      const { data: security } = await axios(`${sourceURL}/${db}/_security`)
       if (argv.verbose) console.log(db + '/_security:\t', security)
-      await targetDB.request({
-        url: '_security',
-        method: 'PUT',
-        body: security
-      })
+      await axios.put(`${targetURL}/${db}/_security`, security)
     }
     // --directly
     if (argv.directly) {
-      await sourceDB.replicate.to(targetDB, addReplicationOptions({}))
+      const sourceDB = new PouchDB(`${sourceURL}/${db}`, { skipSetup: true })
+      await sourceDB.replicate.to(targetDBURL, addReplicationOptions({}))
       if (argv.verbose) {
         console.log(db + ' replicated')
       }
@@ -113,26 +129,28 @@ async function main () {
     return
   }
   // repl docs
-  const sessionDB = new PouchDB(targetURL + '/_session', { skipSetup: true })
-  const session = await sessionDB.request({ url: '' })
+  const {data: session} = await axios(`${targetURL}/_session`)
   const docs = dbs.map(db => {
     const doc = {
       source: sourceURL + '/' + db,
-      target: db,
       create: Boolean(argv.create),
       continuous: Boolean(argv.continuous),
       user_ctx: session.userCtx || {roles: ['_admin']}
     }
+
+    // --tpl-target
+    doc.target = getTargetDb(db)
+
     // --tpl-doc-id
     if (argv.tplDocId) {
-      doc._id = argv.tplDocId.replace(/%DB%/gi, doc.target)
+      doc._id = argv.tplDocId.replace(/%DB%/gi, db)
     }
     // --filter
     // --query
     addReplicationOptions(doc)
     return doc
   })
-  const replicatorDB = new PouchDB(targetURL + '/_replicator', { skipSetup: true })
+  const replicatorDB = new PouchDB(`${targetURL}/_replicator`)
   const result = await replicatorDB.bulkDocs(docs)
   if (argv.verbose) {
     console.log(result)
